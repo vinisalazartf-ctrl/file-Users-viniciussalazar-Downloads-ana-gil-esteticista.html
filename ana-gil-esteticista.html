@@ -537,29 +537,39 @@
         <input type="tel" id="inputPhone" placeholder="(00) 00000-0000">
       </div>
       <div class="form-group">
-        <label>Serviço</label>
+        <label>Serviços <span id="totalLabel" style="color:var(--lilac);font-weight:700"></span></label>
         <div class="service-grid" id="serviceGrid">
-          <div class="service-option selected" onclick="selectService(this,'Depilação Virilha','depilacao',30,'60')">
+          <div class="service-option" onclick="toggleService(this,'Depilação Virilha','depilacao',30,60)">
             <div class="service-icon">🌸</div>
             <div class="service-info"><div class="service-name">Depilação Virilha</div><div class="service-duration">30 min</div></div>
             <div class="service-price">R$ 60</div>
           </div>
-          <div class="service-option" onclick="selectService(this,'Depilação Meia Perna','depilacao',40,'60')">
+          <div class="service-option" onclick="toggleService(this,'Depilação Meia Perna','depilacao',40,60)">
             <div class="service-icon">✨</div>
             <div class="service-info"><div class="service-name">Depilação Meia Perna</div><div class="service-duration">40 min</div></div>
             <div class="service-price">R$ 60</div>
           </div>
-          <div class="service-option" onclick="selectService(this,'Depilação Axila','depilacao',15,'20')">
+          <div class="service-option" onclick="toggleService(this,'Depilação Perna Inteira','depilacao',60,120)">
+            <div class="service-icon">🦵</div>
+            <div class="service-info"><div class="service-name">Depilação Perna Inteira</div><div class="service-duration">60 min</div></div>
+            <div class="service-price">R$ 120</div>
+          </div>
+          <div class="service-option" onclick="toggleService(this,'Depilação Completa','depilacao',90,200)">
+            <div class="service-icon">💎</div>
+            <div class="service-info"><div class="service-name">Depilação Completa</div><div class="service-duration">90 min</div></div>
+            <div class="service-price">R$ 200</div>
+          </div>
+          <div class="service-option" onclick="toggleService(this,'Depilação Axila','depilacao',15,20)">
             <div class="service-icon">💫</div>
             <div class="service-info"><div class="service-name">Depilação Axila</div><div class="service-duration">15 min</div></div>
             <div class="service-price">R$ 20</div>
           </div>
-          <div class="service-option" onclick="selectService(this,'Depilação Buço','depilacao',10,'15')">
+          <div class="service-option" onclick="toggleService(this,'Depilação Buço','depilacao',10,15)">
             <div class="service-icon">🪷</div>
             <div class="service-info"><div class="service-name">Depilação Buço</div><div class="service-duration">10 min</div></div>
             <div class="service-price">R$ 15</div>
           </div>
-          <div class="service-option massage-type" onclick="selectService(this,'Massagem Relaxante','massage',60,'80')">
+          <div class="service-option massage-type" onclick="toggleService(this,'Massagem Relaxante','massage',60,80)">
             <div class="service-icon">💆</div>
             <div class="service-info"><div class="service-name">Massagem Relaxante</div><div class="service-duration">60 min</div></div>
             <div class="service-price">R$ 80</div>
@@ -669,7 +679,7 @@
 let appointments = JSON.parse(localStorage.getItem('anaGil_apts') || '[]');
 let selectedDate = new Date();
 let currentTab = 'agenda';
-let selectedService = { name: 'Depilação Virilha', type: 'depilacao', duration: 30, defaultValue: '60' };
+let selectedServices = [];
 let currentDetailId = null;
 let editingId = null;
 let editingClientName = null;
@@ -854,11 +864,39 @@ function renderResumo(c) {
 function timeToMin(t) { const [h,m] = t.split(':').map(Number); return h*60+m; }
 function minToTime(m) { return `${pad(Math.floor(m/60))}:${pad(m%60)}`; }
 
-function selectService(el, name, type, duration, defaultValue) {
-  document.querySelectorAll('.service-option').forEach(o => o.classList.remove('selected'));
-  el.classList.add('selected');
-  selectedService = { name, type, duration, defaultValue };
-  document.getElementById('inputValue').value = defaultValue;
+let selectedServices = []; // array of {name, type, duration, value}
+
+function toggleService(el, name, type, duration, value) {
+  const idx = selectedServices.findIndex(s => s.name === name);
+  if (idx >= 0) {
+    selectedServices.splice(idx, 1);
+    el.classList.remove('selected');
+  } else {
+    selectedServices.push({ name, type, duration, value });
+    el.classList.add('selected');
+  }
+  updateServiceTotal();
+}
+
+function updateServiceTotal() {
+  const total = selectedServices.reduce((s,x) => s + x.value, 0);
+  const label = document.getElementById('totalLabel');
+  if (selectedServices.length === 0) {
+    label.textContent = '';
+    document.getElementById('inputValue').value = '';
+  } else {
+    label.textContent = `— Total: R$ ${total}`;
+    document.getElementById('inputValue').value = total;
+  }
+}
+
+function getServiceSummary() {
+  if (selectedServices.length === 0) return { name: '', type: 'depilacao', duration: 0, value: 0 };
+  const names = selectedServices.map(s => s.name).join(' + ');
+  const type = selectedServices.some(s => s.type === 'massage') && selectedServices.length === 1 ? 'massage' : 'depilacao';
+  const duration = selectedServices.reduce((s,x) => s + x.duration, 0);
+  const value = selectedServices.reduce((s,x) => s + x.value, 0);
+  return { name: names, type, duration, value };
 }
 
 function openNew() {
@@ -868,11 +906,12 @@ function openNew() {
   document.getElementById('inputPhone').value = '';
   document.getElementById('inputDate').value = dateKey(selectedDate);
   document.getElementById('inputTime').value = '09:00';
-  document.getElementById('inputValue').value = '60';
+  document.getElementById('inputValue').value = '';
   document.getElementById('inputPay').value = 'Pix';
   document.getElementById('inputObs').value = '';
-  document.querySelectorAll('.service-option').forEach((o,i) => o.classList.toggle('selected', i===0));
-  selectedService = { name: 'Depilação Virilha', type: 'depilacao', duration: 30, defaultValue: '60' };
+  document.querySelectorAll('.service-option').forEach(o => o.classList.remove('selected'));
+  selectedServices = [];
+  if (document.getElementById('totalLabel')) document.getElementById('totalLabel').textContent = '';
   document.getElementById('modalNew').classList.add('open');
 }
 
@@ -881,14 +920,16 @@ function saveAppointment() {
   if (!name) { alert('Informe o nome da cliente!'); return; }
   const date = document.getElementById('inputDate').value;
   if (!date) { alert('Informe a data!'); return; }
+  if (selectedServices.length === 0) { alert('Selecione pelo menos um serviço!'); return; }
 
+  const summary = getServiceSummary();
   const apt = {
     id: editingId || Date.now().toString(),
     name,
     phone: document.getElementById('inputPhone').value.trim(),
-    service: selectedService.name,
-    type: selectedService.type,
-    duration: selectedService.duration,
+    service: summary.name,
+    type: summary.type,
+    duration: summary.duration,
     date,
     time: document.getElementById('inputTime').value,
     value: document.getElementById('inputValue').value,
@@ -940,12 +981,23 @@ function editAppointment() {
   document.getElementById('inputPay').value = a.pay || 'Pix';
   document.getElementById('inputObs').value = a.obs || '';
 
-  // Selecionar o serviço correto
+  // Restaurar serviços selecionados
+  const savedNames = a.service.split(' + ');
+  selectedServices = [];
   document.querySelectorAll('.service-option').forEach(o => {
     const sName = o.querySelector('.service-name').textContent;
-    o.classList.toggle('selected', sName === a.service);
+    if (savedNames.includes(sName)) {
+      o.classList.add('selected');
+      // Reconstruir selectedServices a partir dos dados salvos
+      const prices = {'Depilação Virilha':60,'Depilação Meia Perna':60,'Depilação Perna Inteira':120,'Depilação Completa':200,'Depilação Axila':20,'Depilação Buço':15,'Massagem Relaxante':80};
+      const durations = {'Depilação Virilha':30,'Depilação Meia Perna':40,'Depilação Perna Inteira':60,'Depilação Completa':90,'Depilação Axila':15,'Depilação Buço':10,'Massagem Relaxante':60};
+      const types = {'Massagem Relaxante':'massage'};
+      selectedServices.push({ name: sName, type: types[sName]||'depilacao', duration: durations[sName]||30, value: prices[sName]||0 });
+    } else {
+      o.classList.remove('selected');
+    }
   });
-  selectedService = { name: a.service, type: a.type, duration: a.duration, defaultValue: a.value };
+  if (document.getElementById('totalLabel')) updateServiceTotal();
 
   document.getElementById('modalNew').classList.add('open');
 }
